@@ -1,0 +1,38 @@
+minimum_pre_commit_version: "3.5.0"
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        types_or: [yaml, json, markdown]
+        stages: [pre-commit]
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.18.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]
+  - repo: local
+    hooks:
+      - id: no-attribution-trailers
+        name: reject Co-Authored-By / AI-attribution trailers (single-author)
+        language: pygrep
+        entry: '(?i)^(Co-Authored-By|Co-worked-by|Generated[ -]with|Assisted-By)[:\s]'
+        stages: [commit-msg]

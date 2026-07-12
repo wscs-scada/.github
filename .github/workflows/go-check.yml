@@ -1,0 +1,17 @@
+name: go-check
+on:
+  workflow_call:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Install tools
+        run: |
+          go install mvdan.cc/gofumpt@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - run: make check
