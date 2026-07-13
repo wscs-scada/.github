@@ -6,15 +6,17 @@ and Temporal.io across a polyglot (Go, Python, TypeScript) polyrepo.
 
 ## Repositories
 
-| Repo                 | Stack              | Role                                                  |
-| -------------------- | ------------------ | ----------------------------------------------------- |
-| `wscs-api`           | Python / FastAPI   | Spatial device registry, pipe AST engine, WebSockets. |
-| `wscs-worker`        | Python / Temporal  | Stateful irrigation and FSM workflows.                |
-| `wscs-safety-agents` | Python             | Edge hardware-protection limits.                      |
-| `wscs-can-bridge`    | Go                 | SocketCAN-to-MQTT protocol bridge.                    |
-| `wscs-notify`        | Go                 | Outbound push-notification gateway.                   |
-| `wscs-ui`            | TypeScript / Vue 3 | Map-first Digital Twin SPA.                           |
-| `wscs-gitops`        | IaC                | docker-compose and FluxCD manifests.                  |
+| Repo                 | Stack                       | Role                                                           |
+| -------------------- | --------------------------- | -------------------------------------------------------------- |
+| `wscs-api`           | Python / FastAPI            | Spatial device registry, pipe AST engine, WebSockets.          |
+| `wscs-orchestrator`  | Python / FastAPI + Temporal | Automation control plane: plan persistence, dispatch, cron.    |
+| `wscs-worker`        | Python / Temporal           | Stateful irrigation and FSM workflows.                         |
+| `wscs-safety-agents` | Python                      | Edge hardware-protection limits.                               |
+| `wscs-can-bridge`    | Go                          | SocketCAN-to-MQTT protocol bridge.                             |
+| `wscs-notify`        | Go                          | Outbound push-notification gateway.                            |
+| `wscs-ui`            | TypeScript / Vue 3          | Map-first Digital Twin SPA.                                    |
+| `wscs-gitops`        | IaC                         | docker-compose and FluxCD manifests.                           |
+| `workspace`          | Docs                        | Shared architecture, conventions, and C4 diagrams (meta-repo). |
 
 ## Shared CI
 
