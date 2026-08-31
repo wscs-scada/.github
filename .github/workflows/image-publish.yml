@@ -1,0 +1,114 @@
+# Build a service image on every pull request; publish it from main and from tags.
+#
+# Eight repos need the same job, which is what this repo is for. Called from a service's
+# own ci.yml alongside its language check.
+#
+# The split matters: a pull request *builds* and pushes nothing, so a Dockerfile that
+# stops building fails the PR that broke it rather than a deploy weeks later. Only main
+# and tags publish.
+name: image-publish
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: >-
+          The package name under ghcr.io/<owner>/. Defaults to the repository name, which
+          is what every service wants.
+        type: string
+        required: false
+        default: ""
+      target:
+        description: The Dockerfile stage to publish as the service image.
+        type: string
+        required: false
+        default: runtime
+      migrate:
+        description: >-
+          Also publish <image-name>-migrate from the `migrate` stage. True for the three
+          services that own a schema; their runtime image deliberately has no alembic in
+          it, so the migration Job needs an image of its own.
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The only elevated grant, and it is what lets GITHUB_TOKEN push to GHCR -- so
+      # there is no PAT and no long-lived credential anywhere in this path.
+      packages: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3
+
+      # Skipped on a pull request: there is nothing to log in for, and a fork PR has no
+      # credential to log in with.
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the image name
+        id: name
+        run: |
+          name='${{ inputs.image-name }}'
+          [ -n "$name" ] || name="${GITHUB_REPOSITORY##*/}"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER}/${name}" >> "$GITHUB_OUTPUT"
+
+      # sha- is the tag that matters: a manifest should pin something immutable, and a
+      # moving tag cannot be rolled back to. `main` and semver are conveniences.
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build${{ github.event_name != 'pull_request' && ' and push' || '' }}
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        with:
+          context: .
+          target: ${{ inputs.target }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Cache in the Actions cache rather than the registry: a pull request has no
+          # push credential, so a registry cache would make PR builds uncacheable --
+          # which is exactly the build this is meant to keep fast.
+          cache-from: type=gha,scope=${{ inputs.target }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.target }}
+
+      - name: Migration image tags
+        id: meta-migrate
+        if: inputs.migrate
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5
+        with:
+          images: ${{ steps.name.outputs.image }}-migrate
+          tags: |
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build${{ github.event_name != 'pull_request' && ' and push' || '' }} the migration image
+        if: inputs.migrate
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6
+        with:
+          context: .
+          target: migrate
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-migrate.outputs.tags }}
+          labels: ${{ steps.meta-migrate.outputs.labels }}
+          cache-from: type=gha,scope=migrate
+          cache-to: type=gha,mode=max,scope=migrate
